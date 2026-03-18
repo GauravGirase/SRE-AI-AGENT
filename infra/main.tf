@@ -737,7 +737,7 @@ resource "aws_bedrockagentcore_agent_runtime" "agentcore_runtime" {
     }
   }
 
-  depends_on = [null_resource.docker_image, aws_bedrockagentcore_memory.agentcore_memory.agentcore_memory]
+  depends_on = [null_resource.docker_image, aws_bedrockagentcore_memory.agentcore_memory]
 
   network_configuration {
     network_mode = "PUBLIC"
