@@ -519,3 +519,83 @@ resource "aws_bedrockagentcore_gateway_target" "agentcore_gateway_cloudwatch_tar
       }
     }
 }
+
+############################################
+# Prometheus target
+############################################
+resource "aws_bedrockagentcore_gateway_target" "agentcore_gateway_prometheus_target" {
+    name = "${var.app_name}-PrometheusTools"
+    gateway_identifier = aws_bedrockagentcore_gateway.agentcore_gateway.gateway_id
+
+    credential_provider_configuration {
+      gateway_iam_role {}
+    }
+
+    target_configuration {
+      mcp {
+        lambda {
+          lambda_arn = aws_lambda_function.prometheus_lambda.arn
+          tool_schema {
+            inline_payload {
+              name = "prometheus_tool"
+              description = "Prometheus monitoring tool. Supports: query, query_range, get_alerts, get_error_rate, get_latency_percentiles, get_throghput, get_saturation, analyze_service, calculate_sli, check_error_budget"
+              input_schema {
+                type = "object"
+                description = "Input for prometheus_tool"
+                property {
+                  name = "tool_name"
+                  type = "string"
+                  description = "Tool to execute"
+                }
+                property {
+                  name = "query"
+                  type = "string"
+                  description = "PromQL query (for query/query range)"
+                }
+                property {
+                  name = "job"
+                  type = "string"
+                  description = "Service/job name (for golden signals, SLI, error_budget)"
+                }
+                property {
+                  name = "window"
+                  type = "string"
+                  description = "Time window: 5m, 1h, 24h, 30d (default: 5m)"
+                }
+                property {
+                  name = "resource"
+                  type = "string"
+                  description = "Resource type for saturation: cpu, memory (default: cpu)"
+                }
+                property {
+                  name = "namespace"
+                  type = "string"
+                  description = "K8S namespace"
+                }
+                property {
+                  name = "slo_target"
+                  type = "string"
+                  description = "SLO target percentage (default: 99.9)"
+                }
+                property {
+                  name = "start"
+                  type = "string"
+                  description = "Start time for query_range (ISO8601)"
+                }
+                property {
+                  name = "end"
+                  type = "string"
+                  description = "End time for query_range (ISO8601)"
+                }
+                property {
+                  name = "step"
+                  type = "string"
+                  description = "Step interval for query_range (default: 60s)"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+}
