@@ -752,3 +752,20 @@ resource "aws_bedrockagentcore_agent_runtime" "agentcore_runtime" {
     COGNITO_SCOPE = "${aws_cognito_resource_server.cognito_resource_server.identifier}/basic"
   }
 }
+
+##############################################
+# AgentCore Runtime Endpoints
+##############################################
+resource "aws_bedrockagentcore_agent_runtime_endpoint" "dev_endpoint" {
+    name = "DEV"
+    agent_runtime_id = aws_bedrockagentcore_agent_runtime.agentcore_runtime.agent_runtime_id
+    agent_runtime_version = var.agent_runtime_version
+  
+}
+
+resource "aws_bedrockagentcore_agent_runtime_endpoint" "prod_endpoint" {
+    name = "PROD"
+    agent_runtime_id = aws_bedrockagentcore_agent_runtime.agentcore_runtime.agent_runtime_id
+    agent_runtime_version = var.agent_runtime_version
+    depends_on = [aws_bedrockagentcore_agent_runtime_endpoint.dev_endpoint ]
+}
