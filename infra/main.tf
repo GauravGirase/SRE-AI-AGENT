@@ -278,3 +278,48 @@ resource "aws_lambda_function" "prometheus_lambda" {
       
     }
 }
+
+#######################################
+# AgentCore Gateway Roles
+######################################
+data "aws_iam_policy_document" "bedrock_agentcore_assume_role" {
+    statement {
+      effect = "Allow"
+      actions = ["sts:AssumeRole"]
+      principals {
+        type = "Service"
+        identifiers = ["bedrock-agentcore.amazonaws.com"]
+      }
+    }
+}
+
+resource "aws_iam_role" "agentcore_gateway_role" {
+    name = "${var.app_name}-AgentCoreGatewayRole"
+    assume_role_policy = data.aws_ecr_authorization_token.token.json
+}
+
+resource "aws_iam_role_policy_attachment" "agentcore_gateway_permissions" {
+    role = aws_iam_role.agentcore_gateway_role.name
+    policy_arn = "arn:aws:iam::aws:policy/BedrockAgentCoreFullAccess"
+  
+}
+
+resource "aws_iam_role_policy" "agentcore_gateway_lambda_invoke" {
+    role = aws_iam_role.agentcore_gateway_role.id
+    policy = jsondecode({
+        Version = "2012-10-17"
+        Statement = [{
+            Effect = "Allow"
+            Action = [
+                "lambda:InvokeFunction"
+            ]
+            Resource = [
+                aws_lambda_function.mcp_lambda.arn,
+                aws_lambda_function.cloudwatch_lambda.arn,
+                aws_lambda_function.prometheus_lambda.arn
+            ]
+        }]
+    })
+}
+
+
