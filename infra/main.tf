@@ -724,3 +724,31 @@ resource "aws_bedrockagentcore_memory" "agentcore_memory" {
   
 }
 
+##################################################
+# AgentCore Runtime
+##################################################
+resource "aws_bedrockagentcore_agent_runtime" "agentcore_runtime" {
+  agent_runtime_name = "eks-sre-agent_Agent"
+  role_arn = aws_iam_role.agentcore_runtime_execution_role.arn
+
+  agent_runtime_artifact {
+    container_configuration {
+      container_uri = "${aws_ecr_repository.agentcore_terraform_runtime.repository_url}:${local.image_tag}"
+    }
+  }
+
+  depends_on = [null_resource.docker_image, aws_bedrockagentcore_memory.agentcore_memory.agentcore_memory]
+
+  network_configuration {
+    network_mode = "PUBLIC"
+  }
+  environment_variables = {
+    AWS_REGION = data.aws_region.current.region
+    MEMORY_ID = aws_bedrockagentcore_memory.agentcore_memory.id
+    GATEWAY_URL = aws_bedrockagentcore_gateway.agentcore_gateway.gateway_url
+    COGNITO_CLIENT_ID = aws_cognito_user_pool_client.cognito_app_client.id
+    COGNITO_CLIENT_SECRET = aws_cognito_user_pool_client.cognito_app_client.client_secret
+    COGNITO_TOKEN_URL = "https://${aws_cognito_user_pool_domain.cognito_domain.domain}.auth.${data.aws_region.current.region}.amazoncognito.com/oauth2/token"
+    COGNITO_SCOPE = "${aws_cognito_resource_server.cognito_resource_server.identifier}/basic"
+  }
+}
