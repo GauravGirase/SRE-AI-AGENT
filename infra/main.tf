@@ -128,3 +128,91 @@ resource "aws_iam_role_policy_attachment" "mcp_lambda_vpc" {
     policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 
+###################################
+# Cloudwatch MCP Lambda function
+###################################
+
+resource "aws_iam_role" "cloudwatch_lambda_role" {
+    name = "${var.app_name}-CloudWatchLambdaRole"
+    assume_role_policy = jsondecode({
+        Version = "2012-10-17"
+        Statement = [{
+            Action = "sts:AssumeRole"
+            Effect = "Allow"
+            Principal = {
+                Service = "lambda.amazonaws.com"
+            }
+        }]
+    })
+}
+
+resource "aws_iam_role_policy_attachment" "cloudwatch_lambda_basic" {
+    role = aws_iam_role.cloudwatch_lambda_role
+    policy_arn = "arn:aws:iam::aws:policy/service-role/AWSlambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy" "cloudwatch_lambda_cw" {
+    role = aws_iam_role.cloudwatch_lambda_role.id
+    policy = jsondecode({
+        Version = "2012-10-17"
+        Statement = [{
+            Effect = "Allow"
+            Action = [
+                "cloudwatch:GetMetricData",
+                "cloudwatch:GetMetricStatistics",
+                "cloudwatch:ListMetrics",
+                "cloudwatch:DescribeAlarms",
+                "cloudwatch:DescribeAlarmsForMetric"
+            ]
+            Resource = "*"
+        },
+        {
+            Effect = "Allow"
+            Action = [
+                "logs:StartQuery",
+                "logs:GetQueryResults",
+                "logs:DescribeLogGroups",
+                "logs:DescribeLogStreams",
+                "logs:GetLogEvents"
+            ]
+            Resource = "*"
+        }
+        
+        ]
+    })
+}
+
+
+
+data "archive_file" "cloudwatch_lambda_zip" {
+    type = "zip"
+    source_dir = "../${path.root}/mcp/cloudwatch-lambda"
+    output_path = "../${path.root}/cloudwatch_lambda.zip"
+}
+
+resource "aws_lambda_function" "mcp_lambda" {
+    function_name = "${var.app_name}-CloudWatchLambda"
+    role = aws_iam_role.mcp_lambda_role.arn
+    handler = "handler.lambda_handler"
+    runtime = "python3.12"
+    timeout = 60
+    memory_size = 256
+
+    filename = data.archive_file.cloudwatch_lambda_zip.output_path
+    source_code_hash = data.archive_file.cloudwatch_lambda_zip.output_base64sha256
+
+    environment {
+      variables = {
+        EKS_CLUSTER_NAME = var.eks_cluster_name
+      }
+    }
+
+    dynamic "vpc_config" {
+        for_each = var.prometheus_vpc_config != null ? [var.prometheus_vpc_config] : []
+        content {
+          subnet_ids = vpc_config.value.subnet_ids
+          security_group_ids = vpc_config.value.security_group_ids
+        }
+      
+    }
+}
