@@ -322,4 +322,39 @@ resource "aws_iam_role_policy" "agentcore_gateway_lambda_invoke" {
     })
 }
 
+########################################################
+# Agentcore gateway inboung auth- congnito
+########################################################
+resource "aws_cognito_user_pool" "cognito_user_pool" {
+    name = "${var.app_name}-CognitoUserPool"
+}
 
+resource "aws_cognito_resource_server" "cognito_resource_server" {
+    identifier = "${var.app_name}-CognitoResourceServer"
+    name = "${var.app_name}-CognitoResourceServer"
+    user_pool_id = aws_cognito_user_pool.cognito_user_pool.id
+    scope {
+      scope_description = "Basic access to ${var.app_name}"
+      scope_name = "basic"
+    }
+  
+}
+
+resource "aws_cognito_user_pool_client" "cognito_app_client" {
+    name = "${var.app_name}-CognitoUserPoolClient"
+    user_pool_id = aws_cognito_user_pool.cognito_user_pool.id
+    generate_secret = true
+    allowed_oauth_flows = ["client_credentials"]
+    allowed_oauth_flows_user_pool_client = true
+    allowed_oauth_scopes = ["${aws_cognito_resource_server.cognito_resource_server.identifier}/basic"]
+    supported_identity_providers = ["COGNITO"]
+}
+
+resource "aws_cognito_user_pool_domain" "cognito_domain" {
+    domain = "${lower(var.app_name)}-${data.aws_region.current.region}"
+    user_pool_id = aws_cognito_user_pool.cognito_user_pool.id
+}
+
+locals {
+  cognito_discovery_url = "https://cognito-idp.${data.aws_region.current.region}.amazonaws.com/${aws_cognito_user_pool.cognito_user_pool.id}/.well-known/openid-configuration"
+}
