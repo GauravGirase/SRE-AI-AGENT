@@ -104,3 +104,27 @@ resource "aws_lambda_function" "mcp_lambda" {
       
     }
 }
+
+# EKS access for lambda
+resource "aws_iam_role_policy" "mcp_lambda_eks" {
+    role = aws_iam_role.mcp_lambda_role.id
+    policy = jsondecode({
+        Version = "2012-10-17"
+        Statement = [{
+            Effect = "Allow"
+            Action = [
+                "eks:DescribeCluster",
+                "eks:ListClusters"
+            ]
+            Resource = "*"
+        }]
+    })
+}
+
+# VPC access for k8s lambda
+resource "aws_iam_role_policy_attachment" "mcp_lambda_vpc" {
+    count = var.prometheus_vpc_config != null ? 1: 0
+    role = aws_iam_role.mcp_lambda_role.name
+    policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
