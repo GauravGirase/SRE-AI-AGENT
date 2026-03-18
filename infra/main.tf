@@ -190,9 +190,9 @@ data "archive_file" "cloudwatch_lambda_zip" {
     output_path = "../${path.root}/cloudwatch_lambda.zip"
 }
 
-resource "aws_lambda_function" "mcp_lambda" {
+resource "aws_lambda_function" "cloudwatch_lambda" {
     function_name = "${var.app_name}-CloudWatchLambda"
-    role = aws_iam_role.mcp_lambda_role.arn
+    role = aws_iam_role.cloudwatch_lambda_role.arn
     handler = "handler.lambda_handler"
     runtime = "python3.12"
     timeout = 60
@@ -443,4 +443,79 @@ resource "aws_bedrockagentcore_gateway_target" "agentcore_gateway_lambda_target"
       }
     }
   }
+}
+
+############################################
+# Cloudwatch target
+############################################
+resource "aws_bedrockagentcore_gateway_target" "agentcore_gateway_cloudwatch_target" {
+    name = "${var.app_name}-CloudWatchTools"
+    gateway_identifier = aws_bedrockagentcore_gateway.agentcore_gateway.gateway_id
+
+    credential_provider_configuration {
+      gateway_iam_role {}
+    }
+
+    target_configuration {
+      mcp {
+        lambda {
+          lambda_arn = aws_lambda_function.cloudwatch_lambda.arn
+          tool_schema {
+            inline_payload {
+              name = "cloudwatch_tool"
+              description = "Cloudwatch monitoring tool for EKS metrics, alarms and logs, Supports: get_eks_metrics, get_node_metrics, get_pod_metrics, get_alarms, query_logs, get_cluster_health"
+              input_schema {
+                type = "object"
+                description = "Input for cloudwatch_tool"
+                property {
+                  name = "tool_name"
+                  type = "string"
+                  description = "Tool to execute"
+                }
+                property {
+                  name = "period"
+                  type = "string"
+                  description = "Time period for metrics: 5m, 1h, 24h (default: 5m)"
+                }
+                property {
+                  name = "node_name"
+                  type = "string"
+                  description = "Specific node name for get_node_metrics"
+                }
+                property {
+                  name = "namespace"
+                  type = "string"
+                  description = "K8s namespace for get_pod_metrics (default: default)"
+                }
+                property {
+                  name = "pod_name"
+                  type = "string"
+                  description = "Specific pod name"
+                }
+                property {
+                  name = "state"
+                  type = "string"
+                  description = "Filter alarms by state: ALARM, OK, INSUFFICIENT_DATA"
+                }
+                property {
+                  name = "query_type"
+                  type = "string"
+                  description = "Log query type: errors, warning, all (default: errors)"
+                }
+                property {
+                  name = "time_range"
+                  type = "string"
+                  description = "Time range for logs: 1h, 6h, 24h (default:1h)"
+                }
+                property {
+                  name = "limit"
+                  type = "number"
+                  description = "Maximum number of log results (default: 20)"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
 }
