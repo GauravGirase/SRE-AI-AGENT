@@ -358,3 +358,89 @@ resource "aws_cognito_user_pool_domain" "cognito_domain" {
 locals {
   cognito_discovery_url = "https://cognito-idp.${data.aws_region.current.region}.amazonaws.com/${aws_cognito_user_pool.cognito_user_pool.id}/.well-known/openid-configuration"
 }
+
+###############################################################
+# AgentCore Gateway
+###############################################################
+resource "aws_bedrockagentcore_gateway" "agentcore_gateway" {
+  name = "${var.app_name}-Gateway"
+  protocol_type = "MCP"
+  role_arn = aws_iam_role.agentcore_gateway_role.arn
+  authorizer_type = "CUSTOM_JWT"
+  authorizer_configuration {
+    custom_jwt_authorizer {
+      discovery_url = local.cognito_discovery_url
+      allowed_clients = [aws_cognito_user_pool_client.cognito_app_client.id]
+    }
+  }
+}
+
+resource "aws_bedrockagentcore_gateway_target" "agentcore_gateway_lambda_target" {
+  name = "${var.app_name}-KubernetesTools"
+  gateway_identifier = aws_bedrockagentcore_gateway.agentcore_gateway.gateway_id
+
+  credential_provider_configuration {
+    gateway_iam_role {}
+  }
+
+  target_configuration {
+    mcp {
+      lambda {
+        lambda_arn = aws_lambda_function.mcp_lambda
+
+        # Tool: routes to all k8s and runbook operations
+        tool_schema {
+          inline_payload {
+            name = "kubernetes_sre_tool"
+            description = "Kubernetes SRE took for investingating and healing pod issues. supports: get_pods, get_pod_logs, describe_pod, get_events, restart_deployment, search_runbook, get_solution, suggest_fix"
+            input_schema {
+              type = "object"
+              description = "Input for kubernetes_sre_tool"
+              property {
+                name = "tool_name"
+                type = "string"
+                description = "Too to execute: get_pods, get_pod_logs, describe_pod, get_events, restart_deployment, search_runbook, get_soltion, suggest_fix"
+              }
+              property {
+                name = "namespace"
+                type = "string"
+                description = "K8S namespace (default: default)"
+              }
+              property {
+                name = "pod_name"
+                type = "string"
+                description = "Name of the pod"
+              }
+              property {
+                name = "deployment_type"
+                type = "string"
+                description = "Name of the deployment"
+              }
+              property {
+                name = "previous"
+                type = "boolean"
+                description = "Get logs from previous container"
+              }
+              property {
+                name = "query"
+                type = "string"
+                description = "Search query for runbook search"
+              }
+              property {
+                name = "runbook_id"
+                type = "string"
+                description = "Runbook ID (for get_solution)"
+              }
+              property {
+                name = "error_message"
+                type = "string"
+                description = "Error message (for suggest_fix)"
+              }
+
+            }
+          }
+        }
+      }
+    }
+  }
+}
