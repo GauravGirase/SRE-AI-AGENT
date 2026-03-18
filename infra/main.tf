@@ -79,7 +79,7 @@ data "archive_file" "mcp_lambda_zip" {
 }
 
 resource "aws_lambda_function" "mcp_lambda" {
-    function_name = "${var.app_name}-MpcLambda"
+    function_name = "${var.app_name}-McpLambda"
     role = aws_iam_role.mcp_lambda_role.arn
     handler = "handler.lambda_handler"
     runtime = "python3.12"
